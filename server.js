@@ -1,5 +1,6 @@
 const express = require("express");
 const categoryRoutes = require("./routes/categoryRoutes");
+const duaRoutes = require("./routes/duaRoutes");
 const cors = require("cors");
 
 // Initialize Express
@@ -10,6 +11,7 @@ const PORT = process.env.PORT || 4000;
 app.use(express.json());
 app.use(cors());
 app.use("/categories", categoryRoutes);
+app.use("/categories", duaRoutes);
 app.use("/", (req, res) => {
   res.send("Wellcome to Dua App Server");
 });
