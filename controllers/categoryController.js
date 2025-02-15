@@ -1,68 +1,51 @@
 const db = require("../db");
-const getCategoriesWithSubcategoriesAndDuas = (req, res) => {
-  db.all("SELECT * FROM category", [], (err, categories) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-
-    let categoriesData = [];
-    let count = 0;
-
-    categories.forEach((category) => {
-      db.all(
-        "SELECT * FROM sub_category WHERE cat_id = ?",
-        [category.cat_id],
-        (err, subcategories) => {
-          if (err) {
-            return res.status(500).json({ error: err.message });
-          }
-
-          let subcategoriesData = [];
-          let subCount = 0;
-
-          if (subcategories.length === 0) {
-            categoriesData.push({
-              ...category,
-              subcategories: [],
-              duas: [],
-            });
-            count++;
-            if (count === categories.length) {
-              res.json(categoriesData);
-            }
-          }
-
-          subcategories.forEach((subcategory) => {
-            db.all(
-              "SELECT * FROM dua WHERE subcat_id = ?",
-              [subcategory.subcat_id],
-              (err, duas) => {
-                if (err) {
-                  return res.status(500).json({ error: err.message });
-                }
-
-                subcategoriesData.push({
-                  ...subcategory,
-                  duas: duas,
-                });
-                subCount++;
-                if (subCount === subcategories.length) {
-                  categoriesData.push({
-                    ...category,
-                    subcategories: subcategoriesData,
-                  });
-                  count++;
-                  if (count === categories.length) {
-                    res.json(categoriesData);
-                  }
-                }
-              }
-            );
-          });
-        }
-      );
+const getCategoriesWithSubcategoriesAndDuas = async (req, res) => {
+  try {
+    const categories = await new Promise((resolve, reject) => {
+      db.all("SELECT * FROM category", [], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
     });
-  });
+
+    const categoriesData = await Promise.all(
+      categories.map(async (category) => {
+        const subcategories = await new Promise((resolve, reject) => {
+          db.all(
+            "SELECT * FROM sub_category WHERE cat_id = ?",
+            [category.cat_id],
+            (err, rows) => {
+              if (err) reject(err);
+              else resolve(rows);
+            }
+          );
+        });
+
+        const subcategoriesData = await Promise.all(
+          subcategories.map(async (subcategory) => {
+            const duas = await new Promise((resolve, reject) => {
+              db.all(
+                "SELECT * FROM dua WHERE subcat_id = ?",
+                [subcategory.subcat_id],
+                (err, rows) => {
+                  if (err) reject(err);
+                  else resolve(rows);
+                }
+              );
+            });
+
+            return { ...subcategory, duas };
+          })
+        );
+
+        return { ...category, subcategories: subcategoriesData };
+      })
+    );
+
+    res.json(categoriesData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 module.exports = { getCategoriesWithSubcategoriesAndDuas };
